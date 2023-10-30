@@ -23,6 +23,8 @@ internal class Helper
         using System;
         using System.Runtime.InteropServices;
 
+        #nullable enable
+
         namespace PlatformInvokeGenerator
         {
             public enum ImportPlatform
@@ -51,32 +53,78 @@ internal class Helper
             [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
             internal class DllImportForAttribute : Attribute
             {
+                /// <summary>
+                /// Constructor
+                /// </summary>
+                /// <param name="dllName">Library path and name, same value as if this was normal DllImport attribute</param>
+                /// <param name="platform">Target platform</param>
                 public DllImportForAttribute(string dllName, ImportPlatform platform)
                 {
                     DllName = dllName;
                     Platform = platform;
                 }
-
+                /// <summary>
+                /// Library name (and path)
+                /// </summary>
                 public string DllName { get; }
+                /// <summary>
+                /// Target platform
+                /// </summary>
                 public ImportPlatform Platform { get; }
+                /// <summary>
+                /// Native method entrypoint
+                /// </summary>
                 public string? EntryPoint;
+                /// <summary>
+                /// Native method calling convention, default value is Cdecl
+                /// </summary>
                 public CallingConvention CallingConvention;
+                /// <summary>
+                /// Is the generated call method static
+                /// </summary>
                 public bool StaticCallMethod;
+                /// <summary>
+                /// CharSet value that is used as CharSet value in generated DllImport
+                /// </summary>
                 public CharSet CharSet;
+                /// <summary>
+                /// SetLastError, same behavior as standard DllImport
+                /// </summary>
                 public bool SetLastError;
             }
 
+            /// <summary>
+            /// Marks this class as extern class, this class will be used as source class for the PlatformInvokeGenerator source generator.
+            /// </summary>
             [AttributeUsage(AttributeTargets.Class)]
             internal class ExternClassAttribute : Attribute
             {
+                /// <summary>
+                /// Name of the generated class. If value is not provided, name of the decorated class will be used, the decorated class must be partial for this use.
+                /// </summary>
                 public string? GeneratedClassName;
+                /// <summary>
+                /// Namespace where the generated class will live. This value is used only if the GeneratedClassName is provided.
+                /// </summary>
                 public string? GeneratedClassNamespace;
+                /// <summary>
+                /// Generated class visibility modifier. This value is used only if the GeneratedClassName is provided. Default value is Internal.
+                /// </summary>
                 public AccessModifiers ClassAccessModifier;
+                /// <summary>
+                /// Visibility of the call methods. Default value is Internal.
+                /// </summary>
                 public AccessModifiers CallMethodsAccessModifier;
+                /// <summary>
+                /// Set to true if you want the generated class to be static, default value is false.
+                /// </summary>
                 public bool GenerateStaticClass;
+                /// <summary>
+                /// Set to true if you want the generated class to be marked as unsafe, default value is false.
+                /// </summary>
                 public bool GenerateUnsafeClass;
             }
-        }
+        }       
         
         """;
     public const string DLL_IMPORT_FOR_ATTRIBUTE_NAME = "PlatformInvokeGenerator.DllImportForAttribute";
@@ -388,9 +436,7 @@ internal class Helper
                 continue;
 
             string? className = null;
-            var @namespace = symbol.ContainingNamespace.ToDisplayString();
-            if (@namespace == Helper.GLOBAL_NAMESPACE)
-                @namespace = null;
+            var @namespace = GetNamespace(symbol);
             var isStatic = false;
             AccessModifiers access = AccessModifiers.Internal;
             AccessModifiers callMethodAccessModifier = AccessModifiers.Internal;
@@ -404,7 +450,7 @@ internal class Helper
                         continue;
                     case nameof(ExternClassAttribute.GeneratedClassNamespace):
                         var v = (string)arg.Value.Value!;
-                        if (Syntax.IsValidIdentifier(v))
+                        if (!ErrorHelper.IsNamespaceInvalid(v))
                             @namespace = v;
                         continue;
                     case nameof(ExternClassAttribute.ClassAccessModifier):
@@ -428,6 +474,7 @@ internal class Helper
             {
                 className = symbol.Name;
                 isStatic = symbol.IsStatic;
+                @namespace = GetNamespace(symbol);
                 access = symbol.DeclaredAccessibility switch
                 {
                     Accessibility.NotApplicable => AccessModifiers.Internal,
@@ -458,6 +505,14 @@ internal class Helper
         }
 
         throw new Exception("Class without ExternClassAttribute cannot be processed!");
+
+        static string? GetNamespace(INamedTypeSymbol symbol)
+        {
+            var @namespace = symbol.ContainingNamespace.ToDisplayString();
+            if (@namespace == Helper.GLOBAL_NAMESPACE)
+                @namespace = null;
+            return @namespace;
+        }
     }
 
     public static MethodInfo GetMethodInfo(IMethodSymbol method, bool hasDllImport, StringBuilder sb, AttributeData import)
