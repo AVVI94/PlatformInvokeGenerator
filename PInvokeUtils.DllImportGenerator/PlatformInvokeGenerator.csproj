@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<LangVersion>latest</LangVersion>
+		<EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+		<Nullable>enable</Nullable>
+		<EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+		<CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
+		<IsRoslynComponent>true</IsRoslynComponent>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Version>1.6</Version>
+		<AnalyzerLanguage>cs</AnalyzerLanguage>
+		<Title>PlatformInvoke DllImport Generator</Title>
+		<Authors>Jan Král</Authors>
+		<Description>Source generator for extern methods for multiple plaforms. For decorated extern methods generates new class with extern methods decorated with DllImport attribute and also for each method it generates one call method, that will decide what native method to call.</Description>
+		<Copyright>Copyright (c) Jan Král 2024</Copyright>
+		<PackageTags>DllImport, SourceGenerator, source generator</PackageTags>
+		<EnforceCodeStyleInBuild>False</EnforceCodeStyleInBuild>
+		<EnableNETAnalyzers>False</EnableNETAnalyzers>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+		<IncludeSymbols>False</IncludeSymbols>
+		<PackageProjectUrl>https://github.com/AVVI94/PlatformInvokeGenerator</PackageProjectUrl>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+	</ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+	</ItemGroup>
+</Project>
