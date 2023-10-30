@@ -8,6 +8,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Syntax = Microsoft.CodeAnalysis.CSharp.SyntaxFacts;
 
 namespace PlatformInvokeGenerator;
+
 internal class Helper
 {
     public const string ATTRIBUTES = """
@@ -23,10 +24,11 @@ internal class Helper
         using System;
         using System.Runtime.InteropServices;
 
-        #nullable enable
 
         namespace PlatformInvokeGenerator
         {
+            #pragma warning disable CS0649 //Field 'field' is never assigned to, and will always have its default value 'value'        
+            #nullable enable
             public enum ImportPlatform
             {
                 Win32,
@@ -155,7 +157,11 @@ internal class Helper
         if (!cl.UsingStatements.Contains("using System.Runtime.InteropServices;"))
             sb.AppendLine("using System.Runtime.InteropServices;");
 
+
+
         sb.AppendLine();
+        sb.AppendLine("#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.");
+        sb.AppendLine("#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.");
         sb.AppendLine("#nullable enable");
 
         //namespace start
@@ -320,6 +326,8 @@ internal class Helper
         if (hasNamespace)
             sb.AppendLine("""
             }
+            #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
+            #pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
             """);
 
         return sb.ToString();
