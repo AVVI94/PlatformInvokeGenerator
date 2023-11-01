@@ -149,12 +149,12 @@ internal class Helper
             // </auto-generated>
             //------------------------------------------------------------------------------
 
-            {{cl.UsingStatements}} 
+            {{cl.UsingNamespaces}} 
             
             """);
-        if (!cl.UsingStatements.Contains("using System;"))
+        if (!cl.UsingNamespaces.Contains("using System;"))
             sb.AppendLine("using System;");
-        if (!cl.UsingStatements.Contains("using System.Runtime.InteropServices;"))
+        if (!cl.UsingNamespaces.Contains("using System.Runtime.InteropServices;"))
             sb.AppendLine("using System.Runtime.InteropServices;");
 
 
@@ -347,7 +347,7 @@ internal class Helper
             for (var y = 0; y < atrs.Length; y++)
             {
                 AttributeData? atr = atrs[y];
-                sb.Append(AttributeToSpan(atr).ToString());
+                sb.Append(AttributeToSpan(atr, out var @namespace).ToString());
                 if (y != atrs.Length - 1)
                     sb.Append(", ");
             }
@@ -378,8 +378,67 @@ internal class Helper
         }
     }
 
-    public static ReadOnlySpan<char> AttributeToSpan(AttributeData atr)
+    public static ReadOnlySpan<char> AttributeToSpan(AttributeData atr, out HashSet<string> namespaces)
     {
+        namespaces = new();
+        var sb = new StringBuilder();
+        sb.Append(atr.AttributeClass!.Name);
+        _ = namespaces.Add(atr.AttributeClass.ContainingNamespace.ToDisplayString());
+        sb.Append('(');
+
+        for (var i = 0; i < atr.ConstructorArguments.Length; i++)
+        {
+            TypedConstant arg = atr.ConstructorArguments[i];
+            _ = namespaces.Add(arg.Type!.ContainingNamespace.ToDisplayString());
+            if (arg.Type!.TypeKind == TypeKind.Enum)
+            {
+                sb.Append('(');
+                sb.Append(arg.Type.Name);
+                sb.Append(')');
+            }
+            else if (arg.Value is not null && arg.Type.SpecialType == SpecialType.System_String)
+            {
+                sb.Append('"');
+            }
+
+            sb.Append(arg.Value ?? "null");
+
+            if (arg.Value is not null && arg.Type.SpecialType == SpecialType.System_String)
+            {
+                sb.Append('"');
+            }
+
+            if (i != atr.ConstructorArguments.Length - 1)
+                sb.Append(", ");
+        }
+        if (atr.ConstructorArguments.Length > 0 && atr.NamedArguments.Length > 0)
+            sb.Append(", ");
+        for (var i = 0; i < atr.NamedArguments.Length; i++)
+        {
+            var arg = atr.NamedArguments[i];
+            _ = namespaces.Add(arg.Value.Type!.ContainingNamespace.ToDisplayString());
+            sb.Append(arg.Key);
+            sb.Append(" = ");
+            if (arg.Value.Type.TypeKind == TypeKind.Enum)
+            {
+                sb.Append('(');
+                sb.Append(arg.Value.Type.Name);
+                sb.Append(')');
+            }
+            else if (arg.Value.Value is not null && arg.Value.Type.SpecialType == SpecialType.System_String)
+            {
+                sb.Append('"');
+            }
+            sb.Append(arg.Value.Value ?? "null");
+            if (arg.Value.Value is not null && arg.Value.Type.SpecialType == SpecialType.System_String)
+            {
+                sb.Append('"');
+            }
+            if (i != atr.NamedArguments.Length - 1)
+                sb.Append(", ");
+        }
+
+        sb.Append(')');
         var l = atr.ApplicationSyntaxReference!.Span;
         var buf = new char[l.Length];
         atr.ApplicationSyntaxReference.SyntaxTree.GetText().CopyTo(l.Start, buf, 0, l.Length);
@@ -497,14 +556,18 @@ internal class Helper
             }
 
 
-            var usings = string.Join("\r\n", atr.ApplicationSyntaxReference!.SyntaxTree.GetRoot().DescendantNodes().OfType<UsingDirectiveSyntax>().Select(x => x.ToString()));
+            //var usings = atr.ApplicationSyntaxReference!.SyntaxTree.GetRoot()
+            //                                                       .DescendantNodes()
+            //                                                       .OfType<UsingDirectiveSyntax>()
+            //                                                       .Select(x => x.NamespaceOrType.ToString())
+            //                                                       .ToList();
             return new ClassInfo(symbol.Name,
                                  className!,
                                  @namespace,
                                  new List<List<MethodInfo>>(),
                                  access,
                                  isStatic,
-                                 usings,
+                                 new HashSet<string>(),
                                  atr.ApplicationSyntaxReference!.Span,
                                  callMethodAccessModifier,
                                  atr.ApplicationSyntaxReference!.SyntaxTree.GetLineSpan(atr.ApplicationSyntaxReference!.Span),
@@ -523,7 +586,7 @@ internal class Helper
         }
     }
 
-    public static MethodInfo GetMethodInfo(IMethodSymbol method, bool hasDllImport, StringBuilder sb, AttributeData import)
+    public static MethodInfo GetMethodInfo(IMethodSymbol method, bool hasDllImport, StringBuilder sb, AttributeData import, HashSet<string> usingNamespaces)
     {
         var dllName = (string)import.ConstructorArguments[0].Value!;
         var platform = (ImportPlatform)import.ConstructorArguments[1].Value!;
@@ -564,7 +627,7 @@ internal class Helper
         //if return type has any attributes, append them
         foreach (var atr in method.GetReturnTypeAttributes())
         {
-            sb.Append(AttributeToSpan(atr).ToString());
+            sb.Append(AttributeToSpan(atr, out var @namespace).ToString());
             sb.Append(", ");
         }
 

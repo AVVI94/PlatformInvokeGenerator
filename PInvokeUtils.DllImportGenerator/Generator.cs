@@ -150,7 +150,7 @@ public class Generator : IIncrementalGenerator
             foreach (var import in dllImportFors)
             {
                 sb.Clear();
-                MethodInfo methodInfo = Helper.GetMethodInfo(method, hasDllImport, sb, import);
+                MethodInfo methodInfo = Helper.GetMethodInfo(method, hasDllImport, sb, import, classInfo.UsingNamespaces);
                 methods.Add(methodInfo);
             }
             classInfo.Methods!.Add(methods);

@@ -16,18 +16,18 @@ internal readonly record struct ClassInfo
     public readonly bool GenerateStaticClass;
     public readonly bool GenerateUnsafeClass;
     public readonly bool IsDecoratedClassPartial;
-    public readonly string UsingStatements;
+    public readonly HashSet<string> UsingNamespaces;
     public readonly TextSpan ExternClassAttributeTextSpan;
     public readonly FileLinePositionSpan ExternClassAttributeLineSpan;
 
-    public ClassInfo(string sourceClassName, string generatedClassName, string? @namespace, List<List<MethodInfo>> methods, AccessModifiers classAccessModifier, bool isStatic, string usingStatements, TextSpan textSpan, AccessModifiers methodsAccessModifier, FileLinePositionSpan externClassLineSpan, bool isPartial, bool generateUnsafeClass)
+    public ClassInfo(string sourceClassName, string generatedClassName, string? @namespace, List<List<MethodInfo>> methods, AccessModifiers classAccessModifier, bool isStatic, HashSet<string> usingStatements, TextSpan textSpan, AccessModifiers methodsAccessModifier, FileLinePositionSpan externClassLineSpan, bool isPartial, bool generateUnsafeClass)
     {
         GeneratedClassName = generatedClassName;
         Namespace = @namespace;
         Methods = methods;
         ClassAccessModifier = classAccessModifier;
         GenerateStaticClass = isStatic;
-        UsingStatements = usingStatements;
+        UsingNamespaces = usingStatements;
         ExternClassAttributeTextSpan = textSpan;
         MethodsAccessModifier = methodsAccessModifier;
         ExternClassAttributeLineSpan = externClassLineSpan;
