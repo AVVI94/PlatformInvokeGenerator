@@ -29,7 +29,7 @@ internal class Helper
         {
             #pragma warning disable
             #nullable enable
-            public enum ImportPlatform
+            internal enum ImportPlatform
             {
                 Win32,
                 Win64,
@@ -37,7 +37,7 @@ internal class Helper
                 Osx
             }
 
-            public enum AccessModifiers
+            internal enum AccessModifiers
             {
                 Public,
                 Protected,
@@ -177,14 +177,14 @@ internal class Helper
         //       {{GetAccessModifier(cl.ClassAccessModifier)}}{{(cl.GenerateStaticClass ? " static" : "")}}{{(cl.GenerateUnsafeClass ? " unsafe" : "")}} partial class {{cl.GeneratedClassName}}
         //       {
         //    """);
-        sb.Append(GetAccessModifier(cl.ClassAccessModifier));
+        sb.Append("     " + GetAccessModifier(cl.ClassAccessModifier));
         if (cl.GenerateStaticClass)
             sb.Append(" static");
         if (cl.GenerateUnsafeClass)
             sb.Append(" unsafe");
         sb.Append(" partial class ");
         sb.AppendLine(cl.GeneratedClassName);
-        sb.AppendLine("{");
+        sb.AppendLine("     {");
         //class body
         var callMethodVisibility = GetAccessModifier(cl.MethodsAccessModifier);
         foreach (var methodCollection in cl.Methods)

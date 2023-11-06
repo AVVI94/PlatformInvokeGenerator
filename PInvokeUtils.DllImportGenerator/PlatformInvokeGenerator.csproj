@@ -11,7 +11,7 @@
 		<IncludeBuildOutput>false</IncludeBuildOutput>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<Version>1.9</Version>
+		<Version>1.10</Version>
 		<AnalyzerLanguage>cs</AnalyzerLanguage>
 		<Title>PlatformInvoke DllImport Generator</Title>
 		<Authors>Jan Král</Authors>
