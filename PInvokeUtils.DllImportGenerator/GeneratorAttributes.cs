@@ -5,7 +5,7 @@ using System.Runtime.InteropServices;
 
 namespace PlatformInvokeGenerator
 {
-    public enum ImportPlatform
+    internal enum ImportPlatform
     {
         Win32,
         Win64,
@@ -13,7 +13,7 @@ namespace PlatformInvokeGenerator
         Osx
     }
 
-    public enum AccessModifiers
+    internal enum AccessModifiers
     {
         Public,
         Protected,

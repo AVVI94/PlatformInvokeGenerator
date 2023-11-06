@@ -27,7 +27,7 @@ internal class Helper
 
         namespace PlatformInvokeGenerator
         {
-            #pragma warning disable CS0649 //Field 'field' is never assigned to, and will always have its default value 'value'        
+            #pragma warning disable
             #nullable enable
             public enum ImportPlatform
             {
@@ -160,8 +160,7 @@ internal class Helper
 
 
         sb.AppendLine();
-        sb.AppendLine("#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.");
-        sb.AppendLine("#pragma warning disable CS8625 // Cannot convert null literal to non-nullable reference type.");
+        sb.AppendLine("#pragma warning disable");
         sb.AppendLine("#nullable enable");
 
         //namespace start
