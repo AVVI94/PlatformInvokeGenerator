@@ -202,6 +202,8 @@ internal class Helper
                     sb.Append($", CharSet = CharSet.{method.CharSet}");
                 if (method.SetLastError)
                     sb.Append(", SetLastError = true");
+                sb.Append(", CallingConvention = CallingConvention.");
+                sb.Append(method.CallingConvention.ToString());
                 sb.AppendLine(")]");
                 //-----END DllImport-----
 
