@@ -24,11 +24,9 @@ internal class Helper
         using System;
         using System.Runtime.InteropServices;
 
-
+        #pragma warning disable
         namespace PlatformInvokeGenerator
         {
-            #pragma warning disable
-            #nullable enable
             internal enum ImportPlatform
             {
                 Win32,
@@ -74,9 +72,9 @@ internal class Helper
                 /// </summary>
                 public ImportPlatform Platform { get; }
                 /// <summary>
-                /// Native method entrypoint
+                /// Native method entrypoint, can be null, when null the name of the extern method is used as entrypoint
                 /// </summary>
-                public string? EntryPoint;
+                public string EntryPoint;
                 /// <summary>
                 /// Native method calling convention, default value is Cdecl
                 /// </summary>
@@ -102,13 +100,13 @@ internal class Helper
             internal class ExternClassAttribute : Attribute
             {
                 /// <summary>
-                /// Name of the generated class. If value is not provided, name of the decorated class will be used, the decorated class must be partial for this use.
+                /// Name of the generated class. If value is not provided, name of the decorated class will be used, the decorated class must be partial for this use. Can be null.
                 /// </summary>
-                public string? GeneratedClassName;
+                public string GeneratedClassName;
                 /// <summary>
-                /// Namespace where the generated class will live. This value is used only if the GeneratedClassName is provided.
+                /// Namespace where the generated class will live. This value is used only if the GeneratedClassName is provided. Can be null.
                 /// </summary>
-                public string? GeneratedClassNamespace;
+                public string GeneratedClassNamespace;
                 /// <summary>
                 /// Generated class visibility modifier. This value is used only if the GeneratedClassName is provided. Default value is Internal.
                 /// </summary>
@@ -126,7 +124,7 @@ internal class Helper
                 /// </summary>
                 public bool GenerateUnsafeClass;
             }
-        }       
+        }
         
         """;
     public const string DLL_IMPORT_FOR_ATTRIBUTE_NAME = "PlatformInvokeGenerator.DllImportForAttribute";
@@ -161,7 +159,6 @@ internal class Helper
 
         sb.AppendLine();
         sb.AppendLine("#pragma warning disable");
-        sb.AppendLine("#nullable enable");
 
         //namespace start
         if (hasNamespace)
@@ -327,8 +324,6 @@ internal class Helper
         if (hasNamespace)
             sb.AppendLine("""
             }
-            #pragma warning restore CS8625 // Cannot convert null literal to non-nullable reference type.
-            #pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
             """);
 
         return sb.ToString();

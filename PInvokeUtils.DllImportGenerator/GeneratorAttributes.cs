@@ -1,8 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-#nullable enable
-
+#pragma warning disable
 namespace PlatformInvokeGenerator
 {
     internal enum ImportPlatform
@@ -50,9 +49,9 @@ namespace PlatformInvokeGenerator
         /// </summary>
         public ImportPlatform Platform { get; }
         /// <summary>
-        /// Native method entrypoint
+        /// Native method entrypoint, can be null, when null the name of the extern method is used as entrypoint
         /// </summary>
-        public string? EntryPoint;
+        public string EntryPoint;
         /// <summary>
         /// Native method calling convention, default value is Cdecl
         /// </summary>
@@ -78,13 +77,13 @@ namespace PlatformInvokeGenerator
     internal class ExternClassAttribute : Attribute
     {
         /// <summary>
-        /// Name of the generated class. If value is not provided, name of the decorated class will be used, the decorated class must be partial for this use.
+        /// Name of the generated class. If value is not provided, name of the decorated class will be used, the decorated class must be partial for this use. Can be null.
         /// </summary>
-        public string? GeneratedClassName;
+        public string GeneratedClassName;
         /// <summary>
-        /// Namespace where the generated class will live. This value is used only if the GeneratedClassName is provided.
+        /// Namespace where the generated class will live. This value is used only if the GeneratedClassName is provided. Can be null.
         /// </summary>
-        public string? GeneratedClassNamespace;
+        public string GeneratedClassNamespace;
         /// <summary>
         /// Generated class visibility modifier. This value is used only if the GeneratedClassName is provided. Default value is Internal.
         /// </summary>
