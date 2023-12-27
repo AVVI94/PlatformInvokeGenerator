@@ -1,14 +1,14 @@
 # PlatformInvokeGenerator
 
-This .NET SourceGenerator was created to help with creating P/Invoke methods for multiple platforms (Win32, Win64, etc...).
+This .NET SourceGenerator was developed to simplify the creation of P/Invoke methods for various platforms, including Win32, Win64, and others.
 
-The SourceGenerator will generate extern methods with parameters from `DllImportFor` attribute. It will also generate a call method that will decide what native method to call, based on the current platform.
+The SourceGenerator will generate external methods with parameters specified by the DllImportFor attribute. Additionally, it will create a calling method that dynamically determines the appropriate native method to invoke based on the current platform.
 
 ## Usage
 
 To use the source generator add [this](https://www.nuget.org/packages/PlatformInvokeGenerator) NuGet package to your project.
 
-Using `ExternClass` attribute decorate a class where you will declare extern methods, that will be used as a source for the generator. The source methods must be decorated with `DllImportFor` attrbiute and **must not** be decorated with `DllImport` attribute.
+Use the `ExternClass` attribute to decorate a class where you declare external methods intended as a source for the generator. Make sure that the source methods are decorated with the `DllImportFor` attribute and **are not** annotated with the DllImport attribute.
 
 ### Generate partial class based on the decorated class
 
