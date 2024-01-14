@@ -133,7 +133,7 @@ using System.Text;
 using System.Threading.Tasks; 
 
 #nullable enable
-namespace PlatformInvokeGenerator.Test
+namespace PlatformInvoke.ExternFile
 {
 public partial class ExternFileName
 {
