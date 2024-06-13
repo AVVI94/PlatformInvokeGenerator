@@ -17,7 +17,7 @@ namespace PlatformInvokeGenerator.Test
         [DllImportFor(DLL_NAME, ImportPlatform.Win32, CallingConvention = CallingConvention.StdCall, CharSet = CharSet.Unicode, StaticCallMethod = true, SetLastError = true)]
         [DllImportFor(DLL_NAME_X64, ImportPlatform.Win64, CharSet = CharSet.Unicode)]
         [DllImportFor(DLL_NAME_LINUX, ImportPlatform.Linux64, EntryPoint = "GetFileNameA")]
-        static extern void GetFileName(string file);
+        static extern void GetFileName(string file, bool res = true);
     }
 
     [ExternClass(GeneratedClassName = "ExternFileName",

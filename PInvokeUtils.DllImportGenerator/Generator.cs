@@ -17,16 +17,31 @@ public class Generator : IIncrementalGenerator
     {
         context.RegisterPostInitializationOutput(
             c => c.AddSource("PInvokeUtils.Attributes.g.cs",
-                             SourceText.From(Helper.ATTRIBUTES, Encoding.UTF8)));
+                             SourceText.From(Helper.ATTRIBUTES, Encoding.UTF8))
+            );
+
+        IncrementalValueProvider<bool> hasRuntimeInformationClass = context.CompilationProvider.Select(
+            (x, _) => x.GetTypeByMetadataName("System.Runtime.InteropServices.RuntimeInformation") is not null
+            );
 
         IncrementalValuesProvider<ClassInfo?> classes = context.SyntaxProvider.ForAttributeWithMetadataName(Helper.EXTERN_CLASS_ATTRIBUTE_NAME,
                                                                           static (x, _) => x is ClassDeclarationSyntax,
                                                                           GetMethodsToGenerate)
                                                                          .Where(static c => c.HasValue);
-        context.RegisterSourceOutput(classes, static (ctx, v) =>
+
+        context.RegisterSourceOutput(classes.Combine(hasRuntimeInformationClass), static (ctx, tuple) =>
         {
+            var (v, runtimeInfo) = tuple;
             if (v is null)
                 return;//???
+
+            if (!runtimeInfo)
+            {
+                ctx.AddSource("OperatingSystem.g.cs", OperatingSystemHelper.OPERATING_SYSTEM_CLASS);
+                ctx.AddSource("OSPlatform.g.cs", OperatingSystemHelper.OS_PLATFORM_STRUCT);
+
+            }
+
             var value = v!.Value;
 
             //if (value.GeneratePartialClass)
@@ -60,7 +75,7 @@ public class Generator : IIncrementalGenerator
                                                            value.ExternClassAttributeLineSpan.EndLinePosition)),
                                                        value.ClassAccessModifier));
 
-            
+
             if (!string.IsNullOrEmpty(value.Namespace) && ErrorHelper.IsNamespaceInvalid(value.Namespace))
                 ctx.ReportDiagnostic(Diagnostic.Create(ErrorHelper.ErrorInvalidNamespace,
                                                        Location.Create(value.ExternClassAttributeLineSpan.Path,
@@ -119,7 +134,7 @@ public class Generator : IIncrementalGenerator
                                                                                      method.DllImportForTextLinePosSpan.EndLinePosition)), platform));
             }
 
-            var source = Helper.GenerateExternClass(value);
+            var source = Helper.GenerateExternClass(value, !runtimeInfo);
             ctx.AddSource(value.GeneratedClassName + ".g.cs", source);
 
         });

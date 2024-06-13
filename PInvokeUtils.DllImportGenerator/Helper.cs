@@ -5,7 +5,6 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Syntax = Microsoft.CodeAnalysis.CSharp.SyntaxFacts;
 
 namespace PlatformInvokeGenerator;
 
@@ -133,7 +132,7 @@ internal class Helper
     public const string GLOBAL_NAMESPACE = "<global namespace>";
     public const string NAMESPACE = "Namespace";
 
-    public static unsafe string GenerateExternClass(in ClassInfo cl)
+    public static unsafe string GenerateExternClass(in ClassInfo cl, bool customInteropServicesNamespace)
     {
         var hasNamespace = !string.IsNullOrEmpty(cl.Namespace);
         var sb = new StringBuilder();
@@ -147,6 +146,7 @@ internal class Helper
             // </auto-generated>
             //------------------------------------------------------------------------------
 
+
             {{cl.UsingStatements}} 
             
             """);
@@ -157,8 +157,8 @@ internal class Helper
 
 
 
-        sb.AppendLine();
-        sb.AppendLine("#pragma warning disable");
+        sb.AppendLine()
+          .AppendLine("#pragma warning disable");
 
         //namespace start
         if (hasNamespace)
@@ -179,9 +179,9 @@ internal class Helper
             sb.Append(" static");
         if (cl.GenerateUnsafeClass)
             sb.Append(" unsafe");
-        sb.Append(" partial class ");
-        sb.AppendLine(cl.GeneratedClassName);
-        sb.AppendLine("     {");
+        sb.Append(" partial class ")
+          .AppendLine(cl.GeneratedClassName)
+          .AppendLine("     {");
         //class body
         var callMethodVisibility = GetAccessModifier(cl.MethodsAccessModifier);
         foreach (var methodCollection in cl.Methods)
@@ -264,6 +264,7 @@ internal class Helper
             }
             else
             {
+                string interopNamespace = customInteropServicesNamespace ? "System.Runtime.InteropServices2" : "System.Runtime.InteropServices";
                 var enumerator = platforms.GetEnumerator();
                 enumerator.MoveNext();
                 //first platform, starting with if
@@ -273,7 +274,7 @@ internal class Helper
                     enumerator.MoveNext();
                     //windonws specific bitness check
                     sb.AppendLine($$"""
-                                    if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                                    if({{interopNamespace}}.RuntimeInformation.IsOSPlatform({{interopNamespace}}.OSPlatform.Windows))
                                     {
                                         if(Environment.Is64BitProcess)
                                         {
@@ -288,7 +289,7 @@ internal class Helper
                 }
                 else
                     sb.AppendLine($$"""
-                                if(RuntimeInformation.IsOSPlatform(OSPlatform.{{platforms.ToOsPlatformString(enumerator.Current)}}))
+                                if({{interopNamespace}}.RuntimeInformation.IsOSPlatform({{interopNamespace}}.OSPlatform.{{platforms.ToOsPlatformString(enumerator.Current)}}))
                                 {
                                     {{@return}} __{{enumerator.Current}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
                                 }
@@ -297,7 +298,7 @@ internal class Helper
                 while (enumerator.MoveNext())
                 {
                     sb.AppendLine($$"""
-                                    else if(RuntimeInformation.IsOSPlatform(OSPlatform.{{platforms.ToOsPlatformString(enumerator.Current)}}))
+                                    else if({{interopNamespace}}.RuntimeInformation.IsOSPlatform({{interopNamespace}}.OSPlatform.{{platforms.ToOsPlatformString(enumerator.Current)}}))
                                     {
                                         {{@return}} __{{enumerator.Current}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
                                     }
@@ -364,6 +365,14 @@ internal class Helper
                     sb.Append(param.ExplicitDefaultValue);
                     sb.Append('"');
                     //sb.Append($"\"{param.ExplicitDefaultValue}\"");
+                }
+                else if (param.Type.SpecialType == SpecialType.System_Boolean && param.ExplicitDefaultValue is not null)
+                {
+                    sb.Append((bool)param.ExplicitDefaultValue ? "true" : "false");
+                }
+                else if (param.Type.SpecialType == SpecialType.System_Char && param.ExplicitDefaultValue is not null)
+                {
+                    sb.Append('\'').Append(param.ExplicitDefaultValue).Append('\'');
                 }
                 else
                     sb.Append(param.ExplicitDefaultValue ?? "null");
