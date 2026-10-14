@@ -9,6 +9,8 @@
 		<CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<!-- the generator is used only during the build, consumers get PrivateAssets="all" and the dependency does not flow to their packages -->
+		<DevelopmentDependency>true</DevelopmentDependency>
 		<!-- analyzer only package, no dependencies (NU5128) -->
 		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
