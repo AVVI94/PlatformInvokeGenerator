@@ -9,6 +9,8 @@
 		<CompilerGeneratedFilesOutputPath>Generated</CompilerGeneratedFilesOutputPath>
 		<IsRoslynComponent>true</IsRoslynComponent>
 		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<!-- analyzer only package, no dependencies (NU5128) -->
+		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<Version>1.14</Version>
@@ -24,6 +26,7 @@
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 		<IncludeSymbols>False</IncludeSymbols>
 		<PackageProjectUrl>https://github.com/AVVI94/PlatformInvokeGenerator</PackageProjectUrl>
+		<PackageReleaseNotes>1.14: diagnostics reported by an analyzer (live in the IDE, configurable in .editorconfig), ImportLibraryAttribute for the libraries of a class, NativeStringMarshalling (Utf8, WideChar) for string parameters, methods with errors no longer stop the whole class, ref readonly parameters, attribute types marked as embedded (no CS0436 through InternalsVisibleTo). New diagnostics PI1007-PI1017. Requires Roslyn 4.14 (VS 2022 17.14+, .NET SDK 9.0.300+).</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>
