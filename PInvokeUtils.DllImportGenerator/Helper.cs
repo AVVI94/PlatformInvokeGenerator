@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-
-namespace PlatformInvokeGenerator;
+﻿namespace PlatformInvokeGenerator;
 
 internal class Helper
 {
@@ -26,38 +18,171 @@ internal class Helper
         #pragma warning disable
         namespace PlatformInvokeGenerator
         {
+            /// <summary>
+            /// Target platform of a DllImportFor attribute.
+            /// The generated call method selects the import by the current OS, then by the process architecture
+            /// (architecture specific values like WinArm64), then the OS fallback (Win64/Win32 by the process bitness, Linux64, Osx).
+            /// When no import matches, NotSupportedException is thrown.
+            /// </summary>
             internal enum ImportPlatform
             {
+                /// <summary>
+                /// Windows, x86 process
+                /// </summary>
                 Win32,
+                /// <summary>
+                /// Windows, x64 process. Used for any 64-bit process when WinArm64 is not specified.
+                /// </summary>
                 Win64,
+                /// <summary>
+                /// Linux, any process architecture. Used as a fallback when no architecture specific Linux import matches.
+                /// </summary>
                 Linux64,
-                Osx
+                /// <summary>
+                /// macOS, any process architecture. Used as a fallback when no architecture specific macOS import matches.
+                /// </summary>
+                Osx,
+                /// <summary>
+                /// macOS, x64 process (Intel or Rosetta 2)
+                /// </summary>
+                OsxX64,
+                /// <summary>
+                /// macOS, Arm64 process (Apple Silicon)
+                /// </summary>
+                OsxArm64,
+                /// <summary>
+                /// Windows, Arm64 process
+                /// </summary>
+                WinArm64,
+                /// <summary>
+                /// Linux, Arm64 process
+                /// </summary>
+                LinuxArm64
             }
 
+            /// <summary>
+            /// Access modifier of the generated class or of the generated call methods.
+            /// </summary>
             internal enum AccessModifiers
             {
+                /// <summary>
+                /// <c>public</c>
+                /// </summary>
                 Public,
+                /// <summary>
+                /// <c>protected</c>
+                /// </summary>
                 Protected,
+                /// <summary>
+                /// <c>internal</c>
+                /// </summary>
                 Internal,
+                /// <summary>
+                /// <c>private</c>
+                /// </summary>
                 Private,
+                /// <summary>
+                /// <c>protected internal</c>
+                /// </summary>
                 ProtectedInternal,
+                /// <summary>
+                /// <c>private protected</c>
+                /// </summary>
                 PrivateProtected,
             }
 
             /// <summary>
+            /// How string parameters passed by value are passed to the native method.
+            /// Parameters with an explicit MarshalAs attribute are passed by their MarshalAs.
+            /// </summary>
+            internal enum NativeStringMarshalling
+            {
+                /// <summary>
+                /// Standard P/Invoke string marshalling controlled by CharSet.
+                /// </summary>
+                Default,
+                /// <summary>
+                /// Null terminated UTF-8 string (const char*) on all platforms.
+                /// </summary>
+                Utf8,
+                /// <summary>
+                /// Null terminated wchar_t string (const wchar_t*): UTF-16 on Windows, UTF-32 on Linux and macOS.
+                /// </summary>
+                WideChar,
+            }
+
+            /// <summary>
             /// Indicates that the attributed method is exposed by an unmanaged dynamic-link library (DLL) as a static entry point.
-            /// An extern methods will be generated for each attribute. 
-            /// One common method that can be called will be generated, when call, this method will decide what platform-specific extern method to call.
+            /// An extern method is generated for each platform.
+            /// One common method that can be called is generated, when called, this method decides what platform-specific extern method to call.
             /// </summary>
             [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
             internal class DllImportForAttribute : Attribute
+            {
+                /// <summary>
+                /// Imports the method from the libraries declared by <see cref="ImportLibraryAttribute"/> on the class.
+                /// The values of this attribute (EntryPoint, CharSet...) apply to all of them.
+                /// </summary>
+                public DllImportForAttribute()
+                {
+                }
+                /// <summary>
+                /// Imports the method from the library for the platform. Together with <see cref="DllImportForAttribute()"/> it replaces
+                /// the library of the class for this platform, otherwise the method is imported only for the platforms of its own attributes.
+                /// </summary>
+                /// <param name="dllName">Library path and name, same value as if this was normal DllImport attribute</param>
+                /// <param name="platform">Target platform</param>
+                public DllImportForAttribute(string dllName, ImportPlatform platform)
+                {
+                    DllName = dllName;
+                    Platform = platform;
+                }
+                /// <summary>
+                /// Library name (and path), null when the libraries of the class are used
+                /// </summary>
+                public string DllName { get; }
+                /// <summary>
+                /// Target platform
+                /// </summary>
+                public ImportPlatform Platform { get; }
+                /// <summary>
+                /// Native method entrypoint, can be null, when null the name of the extern method is used as entrypoint
+                /// </summary>
+                public string EntryPoint;
+                /// <summary>
+                /// Native method calling convention, default value is the value of ExternClassAttribute, Cdecl when not set there
+                /// </summary>
+                public CallingConvention CallingConvention;
+                /// <summary>
+                /// Is the generated call method static
+                /// </summary>
+                public bool StaticCallMethod;
+                /// <summary>
+                /// CharSet value that is used as CharSet value in generated DllImport, default value is the value of ExternClassAttribute
+                /// </summary>
+                public CharSet CharSet;
+                /// <summary>
+                /// SetLastError, same behavior as standard DllImport
+                /// </summary>
+                public bool SetLastError;
+                /// <summary>
+                /// How string parameters are passed, default value is the value of ExternClassAttribute
+                /// </summary>
+                public NativeStringMarshalling StringMarshalling;
+            }
+
+            /// <summary>
+            /// Library imported by the methods of the class with <see cref="DllImportForAttribute()"/> (without a library), one attribute per platform.
+            /// </summary>
+            [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+            internal class ImportLibraryAttribute : Attribute
             {
                 /// <summary>
                 /// Constructor
                 /// </summary>
                 /// <param name="dllName">Library path and name, same value as if this was normal DllImport attribute</param>
                 /// <param name="platform">Target platform</param>
-                public DllImportForAttribute(string dllName, ImportPlatform platform)
+                public ImportLibraryAttribute(string dllName, ImportPlatform platform)
                 {
                     DllName = dllName;
                     Platform = platform;
@@ -70,26 +195,6 @@ internal class Helper
                 /// Target platform
                 /// </summary>
                 public ImportPlatform Platform { get; }
-                /// <summary>
-                /// Native method entrypoint, can be null, when null the name of the extern method is used as entrypoint
-                /// </summary>
-                public string EntryPoint;
-                /// <summary>
-                /// Native method calling convention, default value is Cdecl
-                /// </summary>
-                public CallingConvention CallingConvention;
-                /// <summary>
-                /// Is the generated call method static
-                /// </summary>
-                public bool StaticCallMethod;
-                /// <summary>
-                /// CharSet value that is used as CharSet value in generated DllImport
-                /// </summary>
-                public CharSet CharSet;
-                /// <summary>
-                /// SetLastError, same behavior as standard DllImport
-                /// </summary>
-                public bool SetLastError;
             }
 
             /// <summary>
@@ -122,603 +227,32 @@ internal class Helper
                 /// Set to true if you want the generated class to be marked as unsafe, default value is false.
                 /// </summary>
                 public bool GenerateUnsafeClass;
+                /// <summary>
+                /// Default calling convention of the methods of the class, default value is Cdecl.
+                /// </summary>
+                public CallingConvention CallingConvention;
+                /// <summary>
+                /// Default CharSet of the methods of the class, default value is Ansi.
+                /// </summary>
+                public CharSet CharSet;
+                /// <summary>
+                /// Default string marshalling of the methods of the class, default value is Default (standard P/Invoke marshalling).
+                /// </summary>
+                public NativeStringMarshalling StringMarshalling;
             }
         }
         
         """;
+    /// <summary>
+    /// <see cref="ATTRIBUTES"/> with the types marked by Microsoft.CodeAnalysis.EmbeddedAttribute
+    /// </summary>
+    public static readonly string EmbeddedAttributes = System.Text.RegularExpressions.Regex.Replace(
+        ATTRIBUTES,
+        @"^(?<indent>[ \t]*)(?<declaration>internal (enum|class) )",
+        "${indent}[global::Microsoft.CodeAnalysis.EmbeddedAttribute]\n${indent}${declaration}",
+        System.Text.RegularExpressions.RegexOptions.Multiline);
+
     public const string DLL_IMPORT_FOR_ATTRIBUTE_NAME = "PlatformInvokeGenerator.DllImportForAttribute";
     public const string EXTERN_CLASS_ATTRIBUTE_NAME = "PlatformInvokeGenerator.ExternClassAttribute";
-    public const string NAME = "Name";
-    public const string GLOBAL_NAMESPACE = "<global namespace>";
-    public const string NAMESPACE = "Namespace";
-
-    public static unsafe string GenerateExternClass(in ClassInfo cl, bool customInteropServicesNamespace)
-    {
-        var hasNamespace = !string.IsNullOrEmpty(cl.Namespace);
-        var sb = new StringBuilder();
-        sb.Append($$"""
-            //------------------------------------------------------------------------------
-            // <auto-generated>
-            //     This code was generated by the PlatformInvokeGenerator source generator
-            //
-            //     Changes to this file may cause incorrect behavior and will be lost if
-            //     the code is regenerated.
-            // </auto-generated>
-            //------------------------------------------------------------------------------
-
-
-            {{cl.UsingStatements}} 
-            
-            """);
-        if (!cl.UsingStatements.Contains("using System;"))
-            sb.AppendLine("using System;");
-        if (!cl.UsingStatements.Contains("using System.Runtime.InteropServices;"))
-            sb.AppendLine("using System.Runtime.InteropServices;");
-
-
-
-        sb.AppendLine()
-          .AppendLine("#pragma warning disable");
-
-        //namespace start
-        if (hasNamespace)
-        {
-            sb.AppendLine($$"""
-                namespace {{cl.Namespace}}
-                {
-                """);
-        }
-
-        //class start
-        //sb.AppendLine($$"""
-        //       {{GetAccessModifier(cl.ClassAccessModifier)}}{{(cl.GenerateStaticClass ? " static" : "")}}{{(cl.GenerateUnsafeClass ? " unsafe" : "")}} partial class {{cl.GeneratedClassName}}
-        //       {
-        //    """);
-        sb.Append("     " + GetAccessModifier(cl.ClassAccessModifier));
-        if (cl.GenerateStaticClass)
-            sb.Append(" static");
-        if (cl.GenerateUnsafeClass)
-            sb.Append(" unsafe");
-        sb.Append(" partial class ")
-          .AppendLine(cl.GeneratedClassName)
-          .AppendLine("     {");
-        //class body
-        var callMethodVisibility = GetAccessModifier(cl.MethodsAccessModifier);
-        foreach (var methodCollection in cl.Methods)
-        {
-            bool win32 = false, win64 = false, linux64 = false, osx = false;
-            string implSuffix = (cl.IsDecoratedClassPartial && cl.GeneratedClassName == cl.SourceClassName) ? "Impl" : "";
-
-            foreach (var method in methodCollection)
-            {
-                //-----START DllImport-----
-                sb.Append($$"""
-                            [DllImport(@"{{method.DllName}}", EntryPoint = "{{method.EntryPoint}}"
-                    """);
-                if (method.CharSet is not CharSet.None and not CharSet.Ansi)
-                    sb.Append($", CharSet = CharSet.{method.CharSet}");
-                if (method.SetLastError)
-                    sb.Append(", SetLastError = true");
-                sb.Append(", CallingConvention = CallingConvention.");
-                sb.Append(method.CallingConvention.ToString());
-                sb.AppendLine(")]");
-                //-----END DllImport-----
-
-                if (!string.IsNullOrEmpty(method.ReturnTypeAttributes))
-                    sb.AppendLine($$"""
-                                [return: {{method.ReturnTypeAttributes}}]
-                        """);
-                sb.AppendLine($$"""
-                            private static extern {{method.ReturnType}} __{{method.Platform}}_{{method.NameWithoutPlatform}}({{method.Parameters}});
-
-                    """);
-
-                switch (method.Platform)
-                {
-                    case ImportPlatform.Win32:
-                        win32 = true;
-                        break;
-                    case ImportPlatform.Win64:
-                        win64 = true;
-                        break;
-                    case ImportPlatform.Linux64:
-                        linux64 = true;
-                        break;
-                    case ImportPlatform.Osx:
-                        osx = true;
-                        break;
-                    default:
-                        break;
-                }
-            }
-
-            var platforms = new CurrentPlatforms(win32, win64, linux64, osx);
-
-            var l_method = methodCollection[0];
-            //method start (method signature)
-            sb.AppendLine($$"""
-                            {{callMethodVisibility}}{{(l_method.IsStatic ? " static" : "")}} {{l_method.ReturnType}} {{l_method.NameWithoutPlatform}}{{implSuffix}}({{l_method.Parameters}})
-                            {
-                    """);
-            var @return = l_method.ReturnType == "void" ? "" : " return";
-            //if only one platform the runtime checks for current platform are skipped
-            if (platforms.Count == 1)
-            {
-                sb.AppendLine($$"""
-                                {{@return}} __{{platforms.GetFirstPlatform()}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
-                    """);
-            } //if only windows is imported the current platform checks are also skipped
-            else if (platforms.IsWindows32and64Only())
-            {
-                sb.AppendLine($$"""
-                                if(Environment.Is64BitProcess)
-                                {
-                                   {{@return}} __{{ImportPlatform.Win64}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
-                                }
-                                else
-                                {
-                                   {{@return}} __{{ImportPlatform.Win32}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
-                                }
-                                
-                    """);
-            }
-            else
-            {
-                string interopNamespace = customInteropServicesNamespace ? "System.Runtime.InteropServices2" : "System.Runtime.InteropServices";
-                var enumerator = platforms.GetEnumerator();
-                enumerator.MoveNext();
-                //first platform, starting with if
-                if (enumerator.Current == ImportPlatform.Win32 && platforms.Win64)
-                {
-                    //skip Win64
-                    enumerator.MoveNext();
-                    //windonws specific bitness check
-                    sb.AppendLine($$"""
-                                    if({{interopNamespace}}.RuntimeInformation.IsOSPlatform({{interopNamespace}}.OSPlatform.Windows))
-                                    {
-                                        if(Environment.Is64BitProcess)
-                                        {
-                                           {{@return}} __{{ImportPlatform.Win64}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
-                                        }
-                                        else
-                                        {
-                                           {{@return}} __{{ImportPlatform.Win32}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
-                                        }
-                                    }
-                        """);
-                }
-                else
-                    sb.AppendLine($$"""
-                                if({{interopNamespace}}.RuntimeInformation.IsOSPlatform({{interopNamespace}}.OSPlatform.{{platforms.ToOsPlatformString(enumerator.Current)}}))
-                                {
-                                    {{@return}} __{{enumerator.Current}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
-                                }
-                        """);
-
-                while (enumerator.MoveNext())
-                {
-                    sb.AppendLine($$"""
-                                    else if({{interopNamespace}}.RuntimeInformation.IsOSPlatform({{interopNamespace}}.OSPlatform.{{platforms.ToOsPlatformString(enumerator.Current)}}))
-                                    {
-                                        {{@return}} __{{enumerator.Current}}_{{l_method.NameWithoutPlatform}}({{l_method.ParametersNames}});
-                                    }
-                        """);
-                }
-
-                sb.AppendLine("""
-                                else
-                                    throw new NotSupportedException("Current OSPlatform is not supported");
-                    """);
-            }
-            //method end
-            sb.AppendLine("""
-                        }
-
-                """);
-        }
-
-        //class end
-        sb.AppendLine("""
-               }
-            """);
-        //namespace end
-        if (hasNamespace)
-            sb.AppendLine("""
-            }
-            """);
-
-        return sb.ToString();
-    }
-
-    public static void AppendMethodParameters(IMethodSymbol method, StringBuilder sb)
-    {
-        for (var i = 0; i < method.Parameters.Length; i++)
-        {
-            IParameterSymbol? param = method.Parameters[i];
-            var atrs = param.GetAttributes();
-            var hasAttributes = atrs.Length > 0;
-
-            if (hasAttributes)
-                sb.Append('[');
-
-            for (var y = 0; y < atrs.Length; y++)
-            {
-                AttributeData? atr = atrs[y];
-                sb.Append(AttributeToSpan(atr).ToString());
-                if (y != atrs.Length - 1)
-                    sb.Append(", ");
-            }
-
-            if (hasAttributes)
-                sb.Append("] ");
-            sb.Append(param.ToString());
-
-            if (param.HasExplicitDefaultValue)
-            {
-                sb.Append(" = ");
-                sb.Append('(');
-                sb.Append(param.Type.ToString());
-                sb.Append(')');
-                if (param.Type.SpecialType == SpecialType.System_String && param.ExplicitDefaultValue is not null)
-                {
-                    sb.Append('"');
-                    sb.Append(param.ExplicitDefaultValue);
-                    sb.Append('"');
-                    //sb.Append($"\"{param.ExplicitDefaultValue}\"");
-                }
-                else if (param.Type.SpecialType == SpecialType.System_Boolean && param.ExplicitDefaultValue is not null)
-                {
-                    sb.Append((bool)param.ExplicitDefaultValue ? "true" : "false");
-                }
-                else if (param.Type.SpecialType == SpecialType.System_Char && param.ExplicitDefaultValue is not null)
-                {
-                    sb.Append('\'').Append(param.ExplicitDefaultValue).Append('\'');
-                }
-                else
-                    sb.Append(param.ExplicitDefaultValue ?? "null");
-            }
-
-            if (i != method.Parameters.Length - 1)
-                sb.Append(", ");
-        }
-    }
-
-    public static ReadOnlySpan<char> AttributeToSpan(AttributeData atr)
-    {
-        var l = atr.ApplicationSyntaxReference!.Span;
-        var buf = new char[l.Length];
-        atr.ApplicationSyntaxReference.SyntaxTree.GetText().CopyTo(l.Start, buf, 0, l.Length);
-        return new ReadOnlySpan<char>(buf);
-    }
-
-    public static List<AttributeData> ExtractDllImportrForAttributes(ISymbol member, out bool hasDllImport)
-    {
-        var dllImportFors = new List<AttributeData>();
-        hasDllImport = false;
-
-        foreach (var atr in member.GetAttributes())
-        {
-            if (atr.AttributeClass?.Name == nameof(DllImportAttribute))
-            {
-                hasDllImport = true;
-                continue;
-            }
-            if (atr.AttributeClass?.Name == nameof(DllImportForAttribute))
-            {
-                dllImportFors.Add(atr);
-                continue;
-            }
-        }
-
-        return dllImportFors;
-    }
-
-    static string GetAccessModifier(AccessModifiers mod)
-        => mod switch
-        {
-            AccessModifiers.Public => "public",
-            AccessModifiers.Protected => "protected",
-            AccessModifiers.Internal => "internal",
-            AccessModifiers.Private => "private",
-            AccessModifiers.ProtectedInternal => "protected internal",
-            AccessModifiers.PrivateProtected => "private protected",
-            _ => throw new NotImplementedException(),
-        };
-
-    public static ClassInfo GetClassInfo(INamedTypeSymbol symbol, in SyntaxTokenList syntaxTokens)
-    {
-        var sourceClassIsPartial = false;
-        var isUnsafe = false;
-        foreach (var token in syntaxTokens)
-        {
-            if (token.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.PartialKeyword))
-            {
-                sourceClassIsPartial = true;
-                continue;
-            }
-            if (token.IsKind(Microsoft.CodeAnalysis.CSharp.SyntaxKind.UnsafeKeyword))
-            {
-                isUnsafe = true;
-                continue;
-            }
-        }
-        foreach (var atr in symbol.GetAttributes())
-        {
-            if (atr.AttributeClass?.Name != nameof(ExternClassAttribute) && atr.AttributeClass?.ContainingNamespace.Name != nameof(PlatformInvokeGenerator)
-                && atr.AttributeClass?.ContainingNamespace.ContainingNamespace.Name != Helper.GLOBAL_NAMESPACE)
-                continue;
-
-            string? className = null;
-            var @namespace = GetNamespace(symbol);
-            var isStatic = false;
-            AccessModifiers access = AccessModifiers.Internal;
-            AccessModifiers callMethodAccessModifier = AccessModifiers.Internal;
-
-            foreach (var arg in atr.NamedArguments)
-            {
-                switch (arg.Key)
-                {
-                    case nameof(ExternClassAttribute.GeneratedClassName):
-                        className = arg.Value.Value?.ToString();
-                        continue;
-                    case nameof(ExternClassAttribute.GeneratedClassNamespace):
-                        var v = (string)arg.Value.Value!;
-                        if (!ErrorHelper.IsNamespaceInvalid(v))
-                            @namespace = v;
-                        continue;
-                    case nameof(ExternClassAttribute.ClassAccessModifier):
-                        access = (AccessModifiers)arg.Value.Value!;
-                        continue;
-                    case nameof(ExternClassAttribute.CallMethodsAccessModifier):
-                        callMethodAccessModifier = (AccessModifiers)arg.Value.Value!;
-                        continue;
-                    case nameof(ExternClassAttribute.GenerateStaticClass):
-                        isStatic = (bool)arg.Value.Value!;
-                        continue;
-                    case nameof(ExternClassAttribute.GenerateUnsafeClass):
-                        isUnsafe = (bool)arg.Value.Value!;
-                        continue;
-                    default:
-                        continue;
-                }
-            }
-
-            if (sourceClassIsPartial && string.IsNullOrEmpty(className))
-            {
-                className = symbol.Name;
-                isStatic = symbol.IsStatic;
-                @namespace = GetNamespace(symbol);
-                access = symbol.DeclaredAccessibility switch
-                {
-                    Accessibility.NotApplicable => AccessModifiers.Internal,
-                    Accessibility.Private => AccessModifiers.Private,
-                    Accessibility.ProtectedAndInternal => AccessModifiers.ProtectedInternal,
-                    Accessibility.Protected => AccessModifiers.Protected,
-                    Accessibility.Internal => AccessModifiers.Internal,
-                    Accessibility.ProtectedOrInternal => AccessModifiers.ProtectedInternal,
-                    Accessibility.Public => AccessModifiers.Public,
-                    _ => AccessModifiers.Internal,
-                };
-            }
-
-
-            var usings = string.Join("\r\n", atr.ApplicationSyntaxReference!.SyntaxTree.GetRoot().DescendantNodes().OfType<UsingDirectiveSyntax>().Select(x => x.ToString()));
-            return new ClassInfo(symbol.Name,
-                                 className!,
-                                 @namespace,
-                                 new List<List<MethodInfo>>(),
-                                 access,
-                                 isStatic,
-                                 usings,
-                                 atr.ApplicationSyntaxReference!.Span,
-                                 callMethodAccessModifier,
-                                 atr.ApplicationSyntaxReference!.SyntaxTree.GetLineSpan(atr.ApplicationSyntaxReference!.Span),
-                                 sourceClassIsPartial,
-                                 isUnsafe);
-        }
-
-        throw new Exception("Class without ExternClassAttribute cannot be processed!");
-
-        static string? GetNamespace(INamedTypeSymbol symbol)
-        {
-            var @namespace = symbol.ContainingNamespace.ToDisplayString();
-            if (@namespace == Helper.GLOBAL_NAMESPACE)
-                @namespace = null;
-            return @namespace;
-        }
-    }
-
-    public static MethodInfo GetMethodInfo(IMethodSymbol method, bool hasDllImport, StringBuilder sb, AttributeData import)
-    {
-        var dllName = (string)import.ConstructorArguments[0].Value!;
-        var platform = (ImportPlatform)import.ConstructorArguments[1].Value!;
-        var entryPoint = method.Name;
-        CallingConvention callingConvention = CallingConvention.Cdecl;
-        var isStatic = true;
-        CharSet charSet = CharSet.Ansi;
-        bool setLastError = false;
-
-        //set method info from DllImportFor attribute
-        foreach (var arg in import.NamedArguments)
-        {
-            switch (arg.Key)
-            {
-                case nameof(DllImportForAttribute.CallingConvention):
-                    if (!arg.Value.IsNull)
-                        callingConvention = (CallingConvention)arg.Value.Value!;
-                    continue;
-                case nameof(DllImportForAttribute.StaticCallMethod):
-                    if (!arg.Value.IsNull)
-                        isStatic = (bool)arg.Value.Value!;
-                    continue;
-                case nameof(DllImportForAttribute.EntryPoint):
-                    if (!string.IsNullOrWhiteSpace((string?)arg.Value.Value))
-                        entryPoint = (string)arg.Value.Value!;
-                    continue;
-                case nameof(DllImportAttribute.SetLastError):
-                    setLastError = ((bool?)arg.Value.Value) ?? false;
-                    continue;
-                case nameof(DllImportAttribute.CharSet):
-                    charSet = (CharSet)arg.Value.Value!;
-                    continue;
-                default:
-                    continue;
-            }
-        }
-
-        //if return type has any attributes, append them
-        foreach (var atr in method.GetReturnTypeAttributes())
-        {
-            sb.Append(AttributeToSpan(atr).ToString());
-            sb.Append(", ");
-        }
-
-        var returnTypeAttributes = sb.ToString();
-        var returnType = method.ReturnType.ToString();
-
-        sb.Clear();
-        Helper.AppendMethodParameters(method, sb);
-
-
-        var methodParams = sb.ToString();
-        sb.Clear();
-
-        for (var i = 0; i < method.Parameters.Length; i++)
-        {
-            sb.Append(method.Parameters[i].RefKind switch
-            {
-                RefKind.None => "",
-                RefKind.Ref => "ref ",
-                RefKind.Out => "out ",
-                RefKind.In => "in ",
-                _ => ""
-            });
-            sb.Append(method.Parameters[i].Name);
-            if (i != method.Parameters.Length - 1)
-                sb.Append(", ");
-        }
-        var paramNames = sb.ToString();
-        var methodInfo = new MethodInfo(method.Name,
-                                        returnTypeAttributes,
-                                        returnType,
-                                        methodParams,
-                                        dllName,
-                                        entryPoint,
-                                        platform,
-                                        callingConvention,
-                                        hasDllImport,
-                                        import.ApplicationSyntaxReference!.Span,
-                                        import.ApplicationSyntaxReference!.SyntaxTree.GetLineSpan(import.ApplicationSyntaxReference!.Span),
-                                        false,
-                                        isStatic,
-                                        paramNames,
-                                        charSet,
-                                        setLastError);
-        return methodInfo;
-    }
-
-    struct PlatformsEnumerator
-    {
-        CurrentPlatforms _platforms;
-        int _state = -1;
-
-        public ImportPlatform Current { get; private set; }
-
-        public PlatformsEnumerator(CurrentPlatforms platforms)
-        {
-            _platforms = platforms;
-        }
-
-        public void Reset() => _state = -1;
-        public bool MoveNext()
-        {
-            while (_state < 3)
-            {
-                _state++;
-                if (_platforms.HasPlatform((ImportPlatform)_state))
-                {
-                    Current = (ImportPlatform)_state;
-                    return true;
-                }
-            }
-            return false;
-        }
-
-    }
-
-    readonly record struct CurrentPlatforms
-    {
-        public readonly bool Win32;
-        public readonly bool Win64;
-        public readonly bool Linux64;
-        public readonly bool Osx;
-
-        public readonly int Count;
-
-        public CurrentPlatforms(bool win32, bool win64, bool linux64, bool osx)
-        {
-            Span<bool> tmp = stackalloc bool[4];
-            tmp[0] = Win32 = win32;
-            tmp[1] = Win64 = win64;
-            tmp[2] = Linux64 = linux64;
-            tmp[3] = Osx = osx;
-            var c = 0;
-            foreach (var i in tmp)
-            {
-                if (i)
-                    c++;
-            }
-            Count = c;
-        }
-
-        public readonly PlatformsEnumerator GetEnumerator() => new(this);
-
-        public readonly ImportPlatform GetFirstPlatform()
-        {
-            if (Win32) return ImportPlatform.Win32;
-            if (Win64) return ImportPlatform.Win64;
-            if (Linux64) return ImportPlatform.Linux64;
-            if (Osx) return ImportPlatform.Osx;
-            throw new NotSupportedException();
-        }
-
-        public readonly bool HasOtherPlatforms(ImportPlatform platform)
-        {
-            return platform switch
-            {
-                ImportPlatform.Win32 => Win64 || Linux64 || Osx,
-                ImportPlatform.Win64 => Win32 || Linux64 || Osx,
-                ImportPlatform.Linux64 => Win32 || Win64 || Osx,
-                ImportPlatform.Osx => Win32 || Win64 || Linux64,
-                _ => false,
-            };
-        }
-
-        public readonly bool HasPlatform(ImportPlatform platform)
-        {
-            return platform switch
-            {
-                ImportPlatform.Win32 => Win32,
-                ImportPlatform.Win64 => Win64,
-                ImportPlatform.Linux64 => Linux64,
-                ImportPlatform.Osx => Osx,
-            };
-        }
-
-        public readonly string ToOsPlatformString(ImportPlatform platform)
-        {
-            return platform switch
-            {
-                ImportPlatform.Win32 => nameof(OSPlatform.Windows),
-                ImportPlatform.Win64 => nameof(OSPlatform.Windows),
-                ImportPlatform.Linux64 => nameof(OSPlatform.Linux),
-                ImportPlatform.Osx => nameof(OSPlatform.OSX),
-            };
-        }
-
-        public readonly bool IsWindows32and64Only()
-        {
-            return Win32 && Win64 && !Linux64 && !Osx;
-        }
-    }
+    public const string IMPORT_LIBRARY_ATTRIBUTE_NAME = "PlatformInvokeGenerator.ImportLibraryAttribute";
 }

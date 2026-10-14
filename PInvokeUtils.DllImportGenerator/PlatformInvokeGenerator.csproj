@@ -11,7 +11,7 @@
 		<IncludeBuildOutput>false</IncludeBuildOutput>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<Version>1.13</Version>
+		<Version>1.14</Version>
 		<AnalyzerLanguage>cs</AnalyzerLanguage>
 		<Title>PlatformInvoke DllImport Generator</Title>
 		<Authors>Jan Král</Authors>
@@ -25,11 +25,15 @@
 		<IncludeSymbols>False</IncludeSymbols>
 		<PackageProjectUrl>https://github.com/AVVI94/PlatformInvokeGenerator</PackageProjectUrl>
 	</PropertyGroup>
+
+	<ItemGroup>
+	  <None Remove="bin\Debug\netstandard2.0\\PlatformInvokeGenerator.dll" />
+	</ItemGroup>
 	<ItemGroup>
 		<None Include="$(OutputPath)\$(AssemblyName).dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.7.0" PrivateAssets="all" />
-		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="4.14.0" PrivateAssets="all" />
 	</ItemGroup>
 </Project>

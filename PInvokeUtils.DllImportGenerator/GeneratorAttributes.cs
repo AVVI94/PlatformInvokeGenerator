@@ -4,38 +4,171 @@ using System.Runtime.InteropServices;
 #pragma warning disable
 namespace PlatformInvokeGenerator
 {
+    /// <summary>
+    /// Target platform of a DllImportFor attribute.
+    /// The generated call method selects the import by the current OS, then by the process architecture
+    /// (architecture specific values like WinArm64), then the OS fallback (Win64/Win32 by the process bitness, Linux64, Osx).
+    /// When no import matches, NotSupportedException is thrown.
+    /// </summary>
     internal enum ImportPlatform
     {
+        /// <summary>
+        /// Windows, x86 process
+        /// </summary>
         Win32,
+        /// <summary>
+        /// Windows, x64 process. Used for any 64-bit process when WinArm64 is not specified.
+        /// </summary>
         Win64,
+        /// <summary>
+        /// Linux, any process architecture. Used as a fallback when no architecture specific Linux import matches.
+        /// </summary>
         Linux64,
-        Osx
+        /// <summary>
+        /// macOS, any process architecture. Used as a fallback when no architecture specific macOS import matches.
+        /// </summary>
+        Osx,
+        /// <summary>
+        /// macOS, x64 process (Intel or Rosetta 2)
+        /// </summary>
+        OsxX64,
+        /// <summary>
+        /// macOS, Arm64 process (Apple Silicon)
+        /// </summary>
+        OsxArm64,
+        /// <summary>
+        /// Windows, Arm64 process
+        /// </summary>
+        WinArm64,
+        /// <summary>
+        /// Linux, Arm64 process
+        /// </summary>
+        LinuxArm64
     }
 
+    /// <summary>
+    /// Access modifier of the generated class or of the generated call methods.
+    /// </summary>
     internal enum AccessModifiers
     {
+        /// <summary>
+        /// <c>public</c>
+        /// </summary>
         Public,
+        /// <summary>
+        /// <c>protected</c>
+        /// </summary>
         Protected,
+        /// <summary>
+        /// <c>internal</c>
+        /// </summary>
         Internal,
+        /// <summary>
+        /// <c>private</c>
+        /// </summary>
         Private,
+        /// <summary>
+        /// <c>protected internal</c>
+        /// </summary>
         ProtectedInternal,
+        /// <summary>
+        /// <c>private protected</c>
+        /// </summary>
         PrivateProtected,
     }
 
     /// <summary>
+    /// How string parameters passed by value are passed to the native method.
+    /// Parameters with an explicit MarshalAs attribute are passed by their MarshalAs.
+    /// </summary>
+    internal enum NativeStringMarshalling
+    {
+        /// <summary>
+        /// Standard P/Invoke string marshalling controlled by CharSet.
+        /// </summary>
+        Default,
+        /// <summary>
+        /// Null terminated UTF-8 string (const char*) on all platforms.
+        /// </summary>
+        Utf8,
+        /// <summary>
+        /// Null terminated wchar_t string (const wchar_t*): UTF-16 on Windows, UTF-32 on Linux and macOS.
+        /// </summary>
+        WideChar,
+    }
+
+    /// <summary>
     /// Indicates that the attributed method is exposed by an unmanaged dynamic-link library (DLL) as a static entry point.
-    /// An extern methods will be generated for each attribute. 
-    /// One common method that can be called will be generated, when call, this method will decide what platform-specific extern method to call.
+    /// An extern method is generated for each platform.
+    /// One common method that can be called is generated, when called, this method decides what platform-specific extern method to call.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method, AllowMultiple = true, Inherited = false)]
     internal class DllImportForAttribute : Attribute
+    {
+        /// <summary>
+        /// Imports the method from the libraries declared by <see cref="ImportLibraryAttribute"/> on the class.
+        /// The values of this attribute (EntryPoint, CharSet...) apply to all of them.
+        /// </summary>
+        public DllImportForAttribute()
+        {
+        }
+        /// <summary>
+        /// Imports the method from the library for the platform. Together with <see cref="DllImportForAttribute()"/> it replaces
+        /// the library of the class for this platform, otherwise the method is imported only for the platforms of its own attributes.
+        /// </summary>
+        /// <param name="dllName">Library path and name, same value as if this was normal DllImport attribute</param>
+        /// <param name="platform">Target platform</param>
+        public DllImportForAttribute(string dllName, ImportPlatform platform)
+        {
+            DllName = dllName;
+            Platform = platform;
+        }
+        /// <summary>
+        /// Library name (and path), null when the libraries of the class are used
+        /// </summary>
+        public string DllName { get; }
+        /// <summary>
+        /// Target platform
+        /// </summary>
+        public ImportPlatform Platform { get; }
+        /// <summary>
+        /// Native method entrypoint, can be null, when null the name of the extern method is used as entrypoint
+        /// </summary>
+        public string EntryPoint;
+        /// <summary>
+        /// Native method calling convention, default value is the value of ExternClassAttribute, Cdecl when not set there
+        /// </summary>
+        public CallingConvention CallingConvention;
+        /// <summary>
+        /// Is the generated call method static
+        /// </summary>
+        public bool StaticCallMethod;
+        /// <summary>
+        /// CharSet value that is used as CharSet value in generated DllImport, default value is the value of ExternClassAttribute
+        /// </summary>
+        public CharSet CharSet;
+        /// <summary>
+        /// SetLastError, same behavior as standard DllImport
+        /// </summary>
+        public bool SetLastError;
+        /// <summary>
+        /// How string parameters are passed, default value is the value of ExternClassAttribute
+        /// </summary>
+        public NativeStringMarshalling StringMarshalling;
+    }
+
+    /// <summary>
+    /// Library imported by the methods of the class with <see cref="DllImportForAttribute()"/> (without a library), one attribute per platform.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Class, AllowMultiple = true, Inherited = false)]
+    internal class ImportLibraryAttribute : Attribute
     {
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="dllName">Library path and name, same value as if this was normal DllImport attribute</param>
         /// <param name="platform">Target platform</param>
-        public DllImportForAttribute(string dllName, ImportPlatform platform)
+        public ImportLibraryAttribute(string dllName, ImportPlatform platform)
         {
             DllName = dllName;
             Platform = platform;
@@ -48,26 +181,6 @@ namespace PlatformInvokeGenerator
         /// Target platform
         /// </summary>
         public ImportPlatform Platform { get; }
-        /// <summary>
-        /// Native method entrypoint, can be null, when null the name of the extern method is used as entrypoint
-        /// </summary>
-        public string EntryPoint;
-        /// <summary>
-        /// Native method calling convention, default value is Cdecl
-        /// </summary>
-        public CallingConvention CallingConvention;
-        /// <summary>
-        /// Is the generated call method static
-        /// </summary>
-        public bool StaticCallMethod;
-        /// <summary>
-        /// CharSet value that is used as CharSet value in generated DllImport
-        /// </summary>
-        public CharSet CharSet;
-        /// <summary>
-        /// SetLastError, same behavior as standard DllImport
-        /// </summary>
-        public bool SetLastError;
     }
 
     /// <summary>
@@ -100,5 +213,17 @@ namespace PlatformInvokeGenerator
         /// Set to true if you want the generated class to be marked as unsafe, default value is false.
         /// </summary>
         public bool GenerateUnsafeClass;
+        /// <summary>
+        /// Default calling convention of the methods of the class, default value is Cdecl.
+        /// </summary>
+        public CallingConvention CallingConvention;
+        /// <summary>
+        /// Default CharSet of the methods of the class, default value is Ansi.
+        /// </summary>
+        public CharSet CharSet;
+        /// <summary>
+        /// Default string marshalling of the methods of the class, default value is Default (standard P/Invoke marshalling).
+        /// </summary>
+        public NativeStringMarshalling StringMarshalling;
     }
 }
