@@ -92,7 +92,7 @@ internal static class ModelBuilder
                                   GetArgumentModifier(parameter.RefKind),
                                   parameter.Type.ToDisplayString(TypeFormat),
                                   EscapeIdentifier(parameter.Name),
-                                  parameter.HasExplicitDefaultValue ? " = " + FormatConstant(parameter.ExplicitDefaultValue, parameter.Type) : "",
+                                  parameter.HasExplicitDefaultValue ? " = " + FormatConstant(parameter.ExplicitDefaultValue, parameter.Type, castNumbers: false) : "",
                                   parameter.Type.SpecialType == SpecialType.System_String
                                       && parameter.RefKind == RefKind.None
                                       && !attributes.Any(a => a.AttributeClass?.ToDisplayString() == MARSHAL_AS_ATTRIBUTE_NAME));
@@ -122,7 +122,7 @@ internal static class ModelBuilder
           .Append(' ')
           .Append(EscapeIdentifier(parameter.Name));
         if (withAttributesAndDefault && parameter.HasExplicitDefaultValue)
-            sb.Append(" = ").Append(FormatConstant(parameter.ExplicitDefaultValue, parameter.Type));
+            sb.Append(" = ").Append(FormatConstant(parameter.ExplicitDefaultValue, parameter.Type, castNumbers: false));
         return sb.ToString();
     }
 
@@ -144,14 +144,16 @@ internal static class ModelBuilder
             TypedConstantKind.Array => "new " + ((IArrayTypeSymbol)constant.Type!).ElementType.ToDisplayString(TypeFormat) + "[] { "
                                        + string.Join(", ", constant.Values.Select(FormatTypedConstant)) + " }",
             TypedConstantKind.Type => "typeof(" + ((ITypeSymbol)constant.Value!).ToDisplayString(TypeFormat) + ")",
-            _ => FormatConstant(constant.Value, constant.Type!),
+            _ => FormatConstant(constant.Value, constant.Type!, castNumbers: true),
         };
     }
 
     /// <summary>
     /// Formats a compile time constant (default parameter value, attribute argument) as C# expression of the given type.
+    /// A number gets a cast in attribute arguments, where the exact type matters (a constructor parameter of type object), a default
+    /// value is converted to the type of the parameter by the compiler.
     /// </summary>
-    static string FormatConstant(object? value, ITypeSymbol type)
+    static string FormatConstant(object? value, ITypeSymbol type, bool castNumbers)
     {
         if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable)
         {
@@ -174,8 +176,7 @@ internal static class ModelBuilder
         }
 
         var literal = FormatPrimitive(value);
-        //literal suffixes already give the exact type, the cast keeps it for types without suffix (byte, short...) and object
-        return value is string or char or bool ? literal : "(" + typeName + ")(" + literal + ")";
+        return value is string or char or bool || !castNumbers ? literal : "(" + typeName + ")(" + literal + ")";
     }
 
     static string FormatPrimitive(object value) => value switch

@@ -239,7 +239,7 @@ Methods with imports for more operating systems, or with an architecture specifi
 ## Generated code
 
 - Types, attributes and default values are fully qualified, the generated code does not depend on the usings of the source file.
-- Parameter attributes (`MarshalAs`, `In`, `Out`...), `ref`/`out`/`in`/`params` modifiers, default values and return attributes are copied to the generated methods.
+- Parameter attributes (`MarshalAs`, `In`, `Out`...), `ref`/`out`/`in`/`params` modifiers, default values and return attributes are copied to the generated call methods. The private platform imports have no default values, the call method always passes all arguments.
 - The generated code is C# 7.3 compatible. The `#nullable disable` directive is emitted only for C# 8 and newer.
 - `ref readonly` parameters (C# 12) are supported, the generated call passes them with `in`.
 - The attribute types (`ExternClassAttribute`, `DllImportForAttribute`, `ImportLibraryAttribute`, `ImportPlatform`, `AccessModifiers`, `NativeStringMarshalling`) are generated into every project as internal types. With a compiler supporting it (Roslyn 4.14+, .NET SDK 9.0.300+), they are marked with `Microsoft.CodeAnalysis.EmbeddedAttribute`, so they do not conflict (CS0436) between projects with `InternalsVisibleTo`.

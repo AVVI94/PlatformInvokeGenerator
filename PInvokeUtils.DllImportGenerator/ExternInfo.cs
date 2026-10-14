@@ -55,6 +55,8 @@ internal readonly record struct ParameterModel(
     bool IsPlainString)
 {
     public string Render() => Attributes + Modifiers + Type + " " + Name + DefaultValue;
+
+    public string RenderWithoutDefault() => Attributes + Modifiers + Type + " " + Name;
 }
 
 /// <summary>

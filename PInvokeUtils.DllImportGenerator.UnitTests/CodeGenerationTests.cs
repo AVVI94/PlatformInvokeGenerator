@@ -12,7 +12,8 @@ public class CodeGenerationTests
 {
     /// <summary>
     /// Every subset of the platforms with every string marshalling, as extern methods of a new class and as partial methods
-    /// of the decorated class. Catches structural errors of the generated platform checks and string conversions.
+    /// of the decorated class. Catches structural errors of the generated platform checks and string conversions
+    /// (a converted string between parameters with default values).
     /// </summary>
     [Theory]
     [InlineData(LanguageVersion.CSharp7_3)]
@@ -28,9 +29,9 @@ public class CodeGenerationTests
             {
                 var attributes = string.Concat(Platforms.Where((_, i) => (mask & (1 << i)) != 0)
                                                         .Select(p => $"[DllImportFor(\"lib_{p}\", ImportPlatform.{p})] "));
-                externs.AppendLine($"        {attributes}public static extern int E{mask}(string s, ref int b, string t);");
+                externs.AppendLine($"        {attributes}public static extern int E{mask}(string s, ref int b, int a = 0, string t = null, int u = 1);");
                 //void partial methods without accessibility are allowed in C# 7.3
-                partials.AppendLine($"        {attributes}static partial void P{mask}(string s, ref int b, string t);");
+                partials.AppendLine($"        {attributes}static partial void P{mask}(string s, ref int b, int a = 0, string t = null, int u = 1);");
             }
             classes.AppendLine($$"""
                     [ExternClass(GeneratedClassName = "Externs{{marshalling}}", StringMarshalling = NativeStringMarshalling.{{marshalling}})]
@@ -60,8 +61,9 @@ public class CodeGenerationTests
     }
 
     /// <summary>
-    /// The generated platform methods and call methods have exactly the signature of the declaration: default values (formatted
-    /// independently of the current culture), modifiers and the marshalling attributes. A difference changes the marshalling silently.
+    /// The generated platform methods and call methods have exactly the signature of the declaration: modifiers, the marshalling
+    /// attributes and attribute arguments of the exact type. The call methods have also the default values (formatted independently
+    /// of the current culture), the private platform methods always get all arguments and have none. A difference changes the marshalling silently.
     /// </summary>
     [Fact]
     public void Generator_DefaultValuesModifiersAndAttributes_SignaturesMatchDeclaration()
@@ -76,6 +78,7 @@ public class CodeGenerationTests
                 public struct S { public int X; }
                 [Flags] public enum E { None = 0, A = 1, B = 2, Negative = -5 }
                 public delegate void Callback(int x);
+                [AttributeUsage(AttributeTargets.Parameter)] public sealed class MarkerAttribute(object value) : Attribute { }
 
                 internal partial class Native
                 {
@@ -96,7 +99,7 @@ public class CodeGenerationTests
                         [return: MarshalAs(UnmanagedType.I1)]
                         public static extern bool Modifiers([In, Out] int[] array, [MarshalAs(UnmanagedType.LPArray, SizeConst = LENGTH)] byte[] buffer,
                                                             ref int r, out int o, in S i, ref readonly S rr, Callback callback,
-                                                            [MarshalAs(UnmanagedType.LPWStr)] string text, int @object, params string[] rest);
+                                                            [MarshalAs(UnmanagedType.LPWStr)] string text, int @object, [Marker((byte)1)] int marked, params string[] rest);
                     }
                 }
             }
@@ -123,23 +126,30 @@ public class CodeGenerationTests
         {
             var declaration = declarations.GetMethod(name, AllStatic)!;
             //the call method is managed, the return value is marshalled by the platform imports only
-            AssertSameSignature(declaration, native.GetMethod(name, AllStatic)!, compareReturnMarshalling: false);
+            AssertSameSignature(declaration, native.GetMethod(name, AllStatic)!, compareReturnMarshalling: false, compareDefaults: true);
             foreach (var generatedName in new[] { "__Win64_" + name, "__Linux64_" + name })
-                AssertSameSignature(declaration, native.GetMethod(generatedName, AllStatic)!, compareReturnMarshalling: true);
+                AssertSameSignature(declaration, native.GetMethod(generatedName, AllStatic)!, compareReturnMarshalling: true, compareDefaults: false);
         }
     }
 
-    static void AssertSameSignature(MethodInfo expected, MethodInfo actual, bool compareReturnMarshalling)
+    static void AssertSameSignature(MethodInfo expected, MethodInfo actual, bool compareReturnMarshalling, bool compareDefaults)
     {
         Assert.Equal(expected.ReturnType, actual.ReturnType);
         if (compareReturnMarshalling)
             Assert.Equal(Describe(expected.ReturnParameter), Describe(actual.ReturnParameter));
         Assert.Equal(expected.GetParameters().Select(Describe), actual.GetParameters().Select(Describe));
+        //no default value at all in the platform methods
+        if (!compareDefaults)
+            Assert.DoesNotContain(actual.GetParameters(), p => p.HasDefaultValue);
 
-        //name, type, In/Out/Optional flags, default value and all attributes including MarshalAs with its arguments
-        static string Describe(ParameterInfo p)
-            => $"{p.Name} {p.ParameterType} {p.Attributes} default={(p.HasDefaultValue ? p.DefaultValue ?? "null" : "-")} "
-               + string.Join(" ", p.GetCustomAttributesData().Select(a => a.ToString()).OrderBy(a => a, StringComparer.Ordinal));
+        //name, type, In/Out flags, default value and all attributes including MarshalAs with its arguments
+        string Describe(ParameterInfo p)
+            => $"{p.Name} {p.ParameterType} {p.Attributes & ~(compareDefaults ? 0 : ParameterAttributes.Optional | ParameterAttributes.HasDefault)} "
+               + $"default={(compareDefaults && p.HasDefaultValue ? p.DefaultValue ?? "null" : "-")} "
+               + string.Join(" ", p.GetCustomAttributesData()
+                                   //the compiler adds these to a parameter with a default value (decimal, optional)
+                                   .Where(a => compareDefaults || a.AttributeType.Name is not ("DecimalConstantAttribute" or "DefaultParameterValueAttribute" or "OptionalAttribute"))
+                                   .Select(a => a.ToString()).OrderBy(a => a, StringComparer.Ordinal));
     }
 
     /// <summary>

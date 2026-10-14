@@ -13,7 +13,7 @@
 		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-		<Version>1.14</Version>
+		<Version>1.14.2</Version>
 		<AnalyzerLanguage>cs</AnalyzerLanguage>
 		<Title>PlatformInvoke DllImport Generator</Title>
 		<Authors>Jan Král</Authors>
@@ -26,7 +26,7 @@
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 		<IncludeSymbols>False</IncludeSymbols>
 		<PackageProjectUrl>https://github.com/AVVI94/PlatformInvokeGenerator</PackageProjectUrl>
-		<PackageReleaseNotes>1.14: diagnostics reported by an analyzer (live in the IDE, configurable in .editorconfig), ImportLibraryAttribute for the libraries of a class, NativeStringMarshalling (Utf8, WideChar) for string parameters, methods with errors no longer stop the whole class, ref readonly parameters, attribute types marked as embedded (no CS0436 through InternalsVisibleTo). New diagnostics PI1007-PI1017. Requires Roslyn 4.14 (VS 2022 17.14+, .NET SDK 9.0.300+).</PackageReleaseNotes>
+		<PackageReleaseNotes>1.14.2: fixed CS1737 in the generated code for a Utf8/WideChar string parameter after a parameter with a default value, the private platform imports have no default values (only the call methods), default values of numbers without a redundant cast. 1.14: diagnostics reported by an analyzer (live in the IDE, configurable in .editorconfig), ImportLibraryAttribute for the libraries of a class, NativeStringMarshalling (Utf8, WideChar) for string parameters, methods with errors no longer stop the whole class, ref readonly parameters, attribute types marked as embedded (no CS0436 through InternalsVisibleTo). New diagnostics PI1007-PI1017. Requires Roslyn 4.14 (VS 2022 17.14+, .NET SDK 9.0.300+).</PackageReleaseNotes>
 	</PropertyGroup>
 
 	<ItemGroup>

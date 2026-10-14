@@ -174,13 +174,17 @@ internal static class SourceEmitter
     static bool NeedsCopy(in MethodGroup method, ImportInfo import)
         => GetConversion(import) is StringConversion.Utf8 or StringConversion.Utf32 && method.Parameters.Any(p => p.IsPlainString);
 
+    /// <summary>
+    /// Parameters of the platform import. The default values are left out, the import is private and the call method always passes all
+    /// arguments (a byte array cannot have the default value of a string and a required parameter cannot follow optional ones, CS1737).
+    /// </summary>
     static string RenderExternParameters(in MethodGroup method, ImportInfo import)
     {
         var conversion = GetConversion(import);
-        //converted strings are passed as byte arrays, the marshaller pins them for the call without copying
-        return string.Join(", ", method.Parameters.Select(p => !p.IsPlainString || conversion == StringConversion.None ? p.Render()
-                                                              : conversion == StringConversion.Utf16 ? $"[{INTEROP}.MarshalAsAttribute({INTEROP}.UnmanagedType.LPWStr)] " + p.Render()
-                                                              : "byte[] " + p.Name));
+        var copy = NeedsCopy(method, import);
+        return string.Join(", ", method.Parameters.Select(p => p.IsPlainString && copy ? "byte[] " + p.Name
+                                                              : p.IsPlainString && conversion == StringConversion.Utf16 ? $"[{INTEROP}.MarshalAsAttribute({INTEROP}.UnmanagedType.LPWStr)] " + p.RenderWithoutDefault()
+                                                              : p.RenderWithoutDefault()));
     }
 
     static void EmitCall(CodeWriter w, in ClassInfo cl, in MethodGroup method, ImportInfo import, string @return)
